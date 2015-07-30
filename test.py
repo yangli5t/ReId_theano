@@ -118,19 +118,19 @@ layer2 = Layer.SecretLayer(
     filter_shape=[25, 25, 5, 5]
 )
 
-layer3 = Layer.MultiConvMaxPoolLayer(
-    rng,
-    input=layer2.results,
-    filter_shape=[25, 25, 3, 3],
-    poolsize=(2, 2)
-)
-
-# layer3 = Layer.LocalCovLayerShort(
+# layer3 = Layer.MultiConvMaxPoolLayer(
 #     rng,
 #     input=layer2.results,
-#     n_in=18*9*25,
-#     n_out=400
+#     filter_shape=[25, 25, 3, 3],
+#     poolsize=(2, 2)
 # )
+
+layer3 = Layer.LocalCovLayerDropout(
+    rng,
+    input=layer2.results,
+    n_in=18*9*25,
+    n_out=200
+)
 #
 # layer4 = Layer.HiddenLayer(
 #     rng,
@@ -141,7 +141,7 @@ layer3 = Layer.MultiConvMaxPoolLayer(
 #
 test_model = theano.function(
     [X1, X2],
-    layer3.output
+    layer3.train_output
 )
 
 img1 = read_image('/home/austin/Documents/Datasets/CUHK/cuhk03/cam_a/0001_01.png')

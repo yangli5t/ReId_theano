@@ -20,7 +20,7 @@ train_model = theano.function(
 
 test_model = theano.function(
     [model.X1, model.X2],
-    model.layer5.p_y_given_x
+    model.layer5.p_y_given_x_test
 )
 
 

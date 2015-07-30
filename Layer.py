@@ -5,6 +5,7 @@ from theano import tensor as T
 from theano.tensor.nnet import conv
 from theano.tensor.signal import downsample
 from theano.tensor.nnet import neighbours
+from theano.tensor.shared_randomstreams import RandomStreams
 
 
 class ConvMaxPoolLayer(object):
@@ -302,6 +303,41 @@ class HiddenLayer(object):
         self.params = [self.W, self.b]
 
 
+class HiddenLayerDropout(object):
+    def __init__(self, rng, train_input, test_input, n_in, n_out):
+
+        # self.input = input.flatten(2)
+
+        self.W = theano.shared(
+            value=numpy.asarray(
+                rng.uniform(
+                    low=-numpy.sqrt(6. / (n_in + n_out)),
+                    high=numpy.sqrt(6. / (n_in + n_out)),
+                    size=(n_in, n_out)
+                ),
+                dtype=theano.config.floatX
+            ),
+            name='W',
+            borrow=True
+        )
+
+        self.b = theano.shared(
+            value=numpy.zeros((n_out,), dtype=theano.config.floatX),
+            name='b',
+            borrow=True
+        )
+
+        p = 0.5
+
+        tmp_output = T.nnet.relu(T.dot(train_input.flatten(2), self.W) + self.b)
+        srng = RandomStreams(rng.randint(1234))
+        mask = (srng.uniform(size=tmp_output.shape) < p)/p
+
+        self.train_output = tmp_output * mask
+        self.test_output = T.nnet.relu(T.dot(test_input.flatten(2), self.W) + self.b)
+        self.params = [self.W, self.b]
+
+
 class Hidden2Layer(object):
     def __init__(self, rng, input1, input2, n_in, n_out):
 
@@ -454,6 +490,37 @@ class LogisticRegression(object):
             return T.mean(T.neq(self.y_pred, y))
         else:
             raise NotImplementedError()
+
+
+class LogisticRegressionDropout(object):
+    def __init__(self, train_input, test_input, n_in, n_out):
+
+        self.W = theano.shared(
+            value=numpy.zeros(
+                (n_in, n_out),
+                dtype=theano.config.floatX
+            ),
+            borrow=True
+        )
+        # initialize the baises b as a vector of n_out 0s
+        self.b = theano.shared(
+            value=numpy.zeros(
+                (n_out,),
+                dtype=theano.config.floatX
+            ),
+            borrow=True
+        )
+
+        self.p_y_given_x_train = T.nnet.softmax(T.dot(train_input, self.W) + self.b)
+        self.p_y_given_x_test = T.nnet.softmax(T.dot(test_input, self.W) + self.b)
+        self.params = [self.W, self.b]
+
+    def negative_log_likelihood_train(self, y):
+        return -T.mean(T.log(self.p_y_given_x_train)[T.arange(y.shape[0]), y])
+
+    def negative_log_likelihood_test(self, y):
+        return -T.mean(T.log(self.p_y_given_x_test)[T.arange(y.shape[0]), y])
+
 
 
 class SecretLayer(object):
@@ -663,7 +730,8 @@ class LocalCovLayerDropout(object):
             self.params.append(self.b[i])
 
             tmp_output = T.nnet.relu(T.dot(sub_input, self.W[i]) + self.b[i])
-            mask = (numpy.random.rand(tmp_output.shape) < p)/p
+            srng = RandomStreams(rng.randint(1234))
+            mask = (srng.uniform(size=tmp_output.shape) < p)/p
             train_output.append(tmp_output * mask)
             test_output.append(tmp_output)
 

@@ -40,25 +40,27 @@ class ReIdModel(object):
             filter_shape=[25, 25, 5, 5]
         )
 
-        self.layer3 = Layer.MultiConvMaxPoolLayer(
-            rng,
-            input=self.layer2.results,
-            filter_shape=[25, 25, 3, 3],
-            poolsize=(2, 2)
-        )
-
-        # self.layer3 = Layer.LocalCovLayer(
+        # self.layer3 = Layer.MultiConvMaxPoolLayer(
         #     rng,
         #     input=self.layer2.results,
-        #     n_in=18*9*25,
-        #     n_out=200
+        #     filter_shape=[25, 25, 3, 3],
+        #     poolsize=(2, 2)
         # )
 
-        self.layer4 = Layer.HiddenLayer(
+        self.layer3 = Layer.LocalCovLayerDropout(
             rng,
-            input=self.layer3.output,
-            n_in=25*24*3,
-            n_out=500
+            input=self.layer2.results,
+            n_in=18*9*25,
+            n_out=200
+        )
+
+        self.layer4 = Layer.HiddenLayerDropout(
+            rng,
+            train_input=self.layer3.train_output,
+            test_input=self.layer3.test_output,
+            # n_in=25*24*3,
+            n_in=800,
+            n_out=200
         )
         # self.layer2 = Layer.ConvMaxPoolLayer(
         #     rng,
@@ -74,8 +76,16 @@ class ReIdModel(object):
         #     n_out=500
         # )
 
-        self.layer5 = Layer.LogisticRegression(self.layer4.output, 500, 2)
-        self.cost = self.layer5.negative_log_likelihood(self.Y)
+        # self.layer5 = Layer.LogisticRegression(self.layer4.output, 500, 2)
+        # self.cost = self.layer5.negative_log_likelihood(self.Y)
+
+        self.layer5 = Layer.LogisticRegressionDropout(
+            train_input=self.layer4.train_output,
+            test_input=self.layer4.test_output,
+            n_in=200,
+            n_out=2
+        )
+        self.cost = self.layer5.negative_log_likelihood_train(self.Y)
 
         self.params = self.layer5.params + self.layer4.params + self.layer3.params + self.layer2.params + self.layer1.params + self.layer0.params
         self.grads = T.grad(self.cost, self.params)
