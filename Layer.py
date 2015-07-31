@@ -241,9 +241,9 @@ class HiddenLayer(object):
         sigmoidal activation function. Weight matrix W is of shape (n_in,n_out)
         and the bias vector b is of shape (n_out,).
 
-        NOTE : The nonlinearity used here is tanh
+        NOTE : The nonlinearity used here is nnet.relu
 
-        Hidden unit activation is given by: tanh(dot(input,W) + b)
+        Hidden unit activation is given by: nnet.relu(dot(input,W) + b)
 
         :type rng: numpy.random.RandomState
         :param rng: a random number generator used to initialize weights
@@ -264,16 +264,16 @@ class HiddenLayer(object):
         self.input = input.flatten(2)
         # `W` is initialized with `W_values` which is uniformely sampled
         # from sqrt(-6./(n_in+n_hidden)) and sqrt(6./(n_in+n_hidden))
-        # for tanh activation function
+        # for nnet.relu activation function
         # the output of uniform if converted using asarray to dtype
         # theano.config.floatX so that the code is runable on GPU
         # Note : optimal initialization of weights is dependent on the
         #        activation function used (among other things).
         #        For example, results presented in [Xavier10] suggest that you
         #        should use 4 times larger initial weights for sigmoid
-        #        compared to tanh
+        #        compared to nnet.relu
         #        We have no info for other function, so we use the same as
-        #        tanh.
+        #        nnet.relu.
 
         # if activation == theano.tensor.nnet.sigmoid:
         #     W_values *= 4
@@ -568,12 +568,14 @@ class SecretLayer(object):
         i = (n % (9 * 9)) / 9
         j = n % 9
         k = n / (9 * 9)
-        conv_out = conv.conv2d(T.abs_(X1[:, :, self.block_i[k]:self.block_i[k]+block_size, i:i+block_size] -
-                                      X2[:, :, self.block_i[k]:self.block_i[k]+block_size, j:j+block_size]), self.W)
+
+        sub_x1 = X1[:, :, self.block_i[k]:self.block_i[k]+block_size, i:i+block_size]
+        sub_x2 = X2[:, :, self.block_i[k]:self.block_i[k]+block_size, j:j+block_size]
+        # tmp = T.sqrt(T.sum(sub_x1 ** 2, axis=(2, 3)) * T.sum(sub_x2 ** 2, axis=(2, 3))).flatten()#.reshape((sub_x2.shape[0], sub_x2.shape[1], 1, 1))#.dimshuffle(0, 1, 'x', 'x') #
+        # tmp = T.extra_ops.repeat(tmp, 25).reshape((sub_x1.shape[0], sub_x1.shape[1], 5, 5))
+        conv_out = conv.conv2d(T.abs_(sub_x1 - sub_x2), self.W)
+        #
         return T.nnet.relu(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'))
-        # tmp = T.abs_(X1[:, :, self.block_i[k]:self.block_i[k]+block_size, i:i+block_size] -
-        #              X2[:, :, self.block_i[k]:self.block_i[k]+block_size, j:j+block_size])
-        # return T.sum(tmp, axis=(2, 3))
 
 
 # class LocalCovLayer(object):
